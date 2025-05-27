@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors (Hevy Style) -->
+    <color name="primary_blue">#007AFF</color>
+    <color name="primary_blue_dark">#0056CC</color>
+    <color name="primary_blue_light">#4D9FFF</color>
+
+    <!-- Background Colors -->
+    <color name="background_primary">#0A0A0A</color>
+    <color name="background_secondary">#1C1C1E</color>
+    <color name="background_tertiary">#2C2C2E</color>
+    <color name="background_card">#1C1C1E</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#8E8E93</color>
+    <color name="text_tertiary">#636366</color>
+    <color name="text_placeholder">#48484A</color>
+
+    <!-- Input Colors -->
+    <color name="input_background">#1C1C1E</color>
+    <color name="input_border">#38383A</color>
+    <color name="input_border_focused">#007AFF</color>
+
+    <!-- Status Colors -->
+    <color name="success_green">#30D158</color>
+    <color name="error_red">#FF453A</color>
+    <color name="warning_orange">#FF9F0A</color>
+
+    <!-- BMI Colors -->
+    <color name="bmi_underweight">#007AFF</color>
+    <color name="bmi_normal">#30D158</color>
+    <color name="bmi_overweight">#FF9F0A</color>
+    <color name="bmi_obese">#FF453A</color>
+
+    <!-- System Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+
+    <!-- Gradient Colors -->
+    <color name="gradient_start">#007AFF</color>
+    <color name="gradient_end">#5856D6</color>
+</resources>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_workouts"
+        android:icon="@drawable/ic_fitness"
+        android:title="@string/nav_workouts" />
+
+    <item
+        android:id="@+id/nav_progress"
+        android:icon="@drawable/ic_trending_up"
+        android:title="@string/nav_progress" />
+
+    <item
+        android:id="@+id/nav_stats"
+        android:icon="@drawable/ic_bar_chart"
+        android:title="@string/nav_stats" />
+
+    <item
+        android:id="@+id/nav_bmi"
+        android:icon="@drawable/ic_calculator"
+        android:title="@string/nav_bmi" />
+
+    <item
+        android:id="@+id/nav_profile"
+        android:icon="@drawable/ic_person"
+        android:title="@string/nav_profile" />
+
+</menu>
