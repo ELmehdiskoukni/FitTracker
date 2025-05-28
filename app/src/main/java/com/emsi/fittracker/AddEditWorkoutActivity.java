@@ -1,6 +1,7 @@
 package com.emsi.fittracker;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.EditText;
@@ -14,10 +15,14 @@ import com.emsi.fittracker.interfaces.DataCallback;
 import com.emsi.fittracker.models.Workout;
 import com.emsi.fittracker.utils.FirebaseHelper;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 public class AddEditWorkoutActivity extends AppCompatActivity {
+
+    private static final String TAG = "AddEditWorkoutActivity";
 
     private EditText etWorkoutTitle;
     private Button btnSaveWorkout;
@@ -27,6 +32,7 @@ public class AddEditWorkoutActivity extends AppCompatActivity {
     private String currentUserId;
     private String workoutId; // null for new workout
     private boolean isEditMode = false;
+    private boolean isSaving = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,17 +44,29 @@ public class AddEditWorkoutActivity extends AppCompatActivity {
         setupListeners();
 
         firebaseHelper = FirebaseHelper.getInstance();
-        currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+
+        // Check authentication
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, "Utilisateur non connecté", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        currentUserId = currentUser.getUid();
 
         // Check if we're editing an existing workout
         workoutId = getIntent().getStringExtra("workout_id");
-        if (workoutId != null) {
+        if (workoutId != null && !workoutId.isEmpty()) {
             isEditMode = true;
             String workoutTitle = getIntent().getStringExtra("workout_title");
-            etWorkoutTitle.setText(workoutTitle);
+            if (workoutTitle != null) {
+                etWorkoutTitle.setText(workoutTitle);
+            }
             toolbar.setTitle("Modifier l'entraînement");
+            Log.d(TAG, "Edit mode - Workout ID: " + workoutId);
         } else {
             toolbar.setTitle("Nouvel entraînement");
+            Log.d(TAG, "Create mode");
         }
     }
 
@@ -79,8 +97,16 @@ public class AddEditWorkoutActivity extends AppCompatActivity {
             return;
         }
 
+        if (isSaving) {
+            Log.d(TAG, "Already saving workout, ignoring request");
+            return;
+        }
+
+        isSaving = true;
         btnSaveWorkout.setEnabled(false);
         btnSaveWorkout.setText("Sauvegarde...");
+
+        Log.d(TAG, "Saving workout: " + title + ", Edit mode: " + isEditMode);
 
         if (isEditMode) {
             updateExistingWorkout(title);
@@ -90,49 +116,70 @@ public class AddEditWorkoutActivity extends AppCompatActivity {
     }
 
     private void createNewWorkout(String title) {
-        Workout workout = new Workout(title, new Date());
+        Log.d(TAG, "Creating new workout: " + title);
 
-        firebaseHelper.saveWorkout(workout, new DataCallback<Workout>() {
-            @Override
-            public void onSuccess(Workout result) {
-                runOnUiThread(() -> {
-                    Toast.makeText(AddEditWorkoutActivity.this, "Entraînement créé", Toast.LENGTH_SHORT).show();
-                    finish();
-                });
-            }
+        try {
+            // Create new workout with empty exercises list
+            Workout workout = new Workout(title, new Date());
+            workout.setExercises(new ArrayList<>()); // Initialize empty exercises list
 
-            @Override
-            public void onFailure(String error) {
-                runOnUiThread(() -> {
-                    Toast.makeText(AddEditWorkoutActivity.this, "Erreur: " + error, Toast.LENGTH_SHORT).show();
-                    btnSaveWorkout.setEnabled(true);
-                    btnSaveWorkout.setText("Enregistrer");
-                });
-            }
-        });
+            Log.d(TAG, "Workout object created, calling FirebaseHelper");
+
+            firebaseHelper.saveWorkout(workout, new DataCallback<Workout>() {
+                @Override
+                public void onSuccess(Workout result) {
+                    Log.d(TAG, "Workout created successfully: " + result.getId());
+                    runOnUiThread(() -> {
+                        Toast.makeText(AddEditWorkoutActivity.this, "Entraînement créé avec succès", Toast.LENGTH_SHORT).show();
+                        finish();
+                    });
+                }
+
+                @Override
+                public void onFailure(String error) {
+                    Log.e(TAG, "Failed to create workout: " + error);
+                    runOnUiThread(() -> {
+                        Toast.makeText(AddEditWorkoutActivity.this, "Erreur lors de la création: " + error, Toast.LENGTH_LONG).show();
+                        resetSaveButton();
+                    });
+                }
+            });
+
+        } catch (Exception e) {
+            Log.e(TAG, "Exception while creating workout", e);
+            Toast.makeText(this, "Erreur lors de la préparation: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            resetSaveButton();
+        }
     }
 
     private void updateExistingWorkout(String title) {
+        Log.d(TAG, "Updating existing workout: " + workoutId + " with title: " + title);
+
+        // First get the existing workout to preserve exercises
         firebaseHelper.getWorkout(workoutId, new DataCallback<Workout>() {
             @Override
             public void onSuccess(Workout workout) {
+                Log.d(TAG, "Retrieved existing workout for update");
+
+                // Update only the title, keep everything else
                 workout.setTitle(title);
 
                 firebaseHelper.updateWorkout(workout, new DataCallback<Workout>() {
                     @Override
                     public void onSuccess(Workout result) {
+                        Log.d(TAG, "Workout updated successfully: " + result.getId());
                         runOnUiThread(() -> {
-                            Toast.makeText(AddEditWorkoutActivity.this, "Entraînement modifié", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(AddEditWorkoutActivity.this, "Entraînement modifié avec succès", Toast.LENGTH_SHORT).show();
                             finish();
                         });
                     }
 
                     @Override
                     public void onFailure(String error) {
+                        Log.e(TAG, "Failed to update workout: " + error);
                         runOnUiThread(() -> {
-                            Toast.makeText(AddEditWorkoutActivity.this, "Erreur: " + error, Toast.LENGTH_SHORT).show();
-                            btnSaveWorkout.setEnabled(true);
-                            btnSaveWorkout.setText("Enregistrer");
+                            Toast.makeText(AddEditWorkoutActivity.this, "Erreur lors de la modification: " + error, Toast.LENGTH_LONG).show();
+                            resetSaveButton();
                         });
                     }
                 });
@@ -140,13 +187,19 @@ public class AddEditWorkoutActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(String error) {
+                Log.e(TAG, "Failed to retrieve workout for update: " + error);
                 runOnUiThread(() -> {
-                    Toast.makeText(AddEditWorkoutActivity.this, "Erreur: " + error, Toast.LENGTH_SHORT).show();
-                    btnSaveWorkout.setEnabled(true);
-                    btnSaveWorkout.setText("Enregistrer");
+                    Toast.makeText(AddEditWorkoutActivity.this, "Erreur lors de la récupération: " + error, Toast.LENGTH_LONG).show();
+                    resetSaveButton();
                 });
             }
         });
+    }
+
+    private void resetSaveButton() {
+        isSaving = false;
+        btnSaveWorkout.setEnabled(true);
+        btnSaveWorkout.setText("Enregistrer");
     }
 
     @Override
@@ -156,5 +209,12 @@ public class AddEditWorkoutActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Reset saving state if activity is destroyed
+        isSaving = false;
     }
 }

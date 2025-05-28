@@ -2,11 +2,6 @@ package com.emsi.fittracker.utils;
 
 import android.util.Log;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
@@ -14,17 +9,18 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.google.firebase.firestore.QuerySnapshot;
 
 import com.emsi.fittracker.interfaces.AuthCallback;
 import com.emsi.fittracker.interfaces.DataCallback;
 import com.emsi.fittracker.models.BmiRecord;
+import com.emsi.fittracker.models.Exercise;
 import com.emsi.fittracker.models.User;
 import com.emsi.fittracker.models.Workout;
 import com.emsi.fittracker.models.WorkoutSession;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -76,7 +72,7 @@ public class FirebaseHelper {
                             });
                         }
                     } else {
-                        callback.onFailure(task.getException().getMessage());
+                        callback.onFailure(task.getException() != null ? task.getException().getMessage() : "Registration failed");
                     }
                 });
     }
@@ -87,7 +83,7 @@ public class FirebaseHelper {
                     if (task.isSuccessful()) {
                         callback.onSuccess(mAuth.getCurrentUser());
                     } else {
-                        callback.onFailure(task.getException().getMessage());
+                        callback.onFailure(task.getException() != null ? task.getException().getMessage() : "Login failed");
                     }
                 });
     }
@@ -133,54 +129,173 @@ public class FirebaseHelper {
                 });
     }
 
-    // Workout methods
+    // FIXED WORKOUT METHODS - COMPLETE SOLUTION
 
+    // Save a new workout
+    public void saveWorkout(Workout workout, DataCallback<Workout> callback) {
+        Log.d(TAG, "Attempting to save workout: " + workout.getTitle());
 
+        // Get current user ID
+        FirebaseUser currentUser = getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "No authenticated user found");
+            callback.onFailure("User not authenticated");
+            return;
+        }
+
+        String userId = currentUser.getUid();
+
+        try {
+            // Create document reference
+            DocumentReference docRef = db.collection(WORKOUTS_COLLECTION).document();
+            String workoutId = docRef.getId();
+            workout.setId(workoutId);
+
+            // Prepare workout data
+            Map<String, Object> workoutData = new HashMap<>();
+            workoutData.put("id", workoutId);
+            workoutData.put("title", workout.getTitle());
+            workoutData.put("date", workout.getDate());
+            workoutData.put("userId", userId);
+            workoutData.put("createdAt", new Date());
+            workoutData.put("updatedAt", new Date());
+
+            // Convert exercises to maps
+            List<Map<String, Object>> exercisesList = new ArrayList<>();
+            if (workout.getExercises() != null) {
+                for (Exercise exercise : workout.getExercises()) {
+                    if (exercise != null) {
+                        Map<String, Object> exerciseMap = new HashMap<>();
+                        exerciseMap.put("name", exercise.getName());
+                        exerciseMap.put("sets", exercise.getSets());
+                        exerciseMap.put("reps", exercise.getReps());
+                        exerciseMap.put("weight", exercise.getWeight());
+                        exercisesList.add(exerciseMap);
+                    }
+                }
+            }
+            workoutData.put("exercises", exercisesList);
+
+            Log.d(TAG, "Saving workout data: " + workoutData.toString());
+
+            // Save to Firestore
+            docRef.set(workoutData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Workout saved successfully with ID: " + workoutId);
+                        workout.setUserId(userId);
+                        callback.onSuccess(workout);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Error saving workout", e);
+                        callback.onFailure("Failed to save workout: " + e.getMessage());
+                    });
+
+        } catch (Exception e) {
+            Log.e(TAG, "Exception while saving workout", e);
+            callback.onFailure("Error preparing workout data: " + e.getMessage());
+        }
+    }
+
+    // Update an existing workout
+    public void updateWorkout(Workout workout, DataCallback<Workout> callback) {
+        Log.d(TAG, "Attempting to update workout: " + workout.getId());
+
+        if (workout.getId() == null || workout.getId().isEmpty()) {
+            Log.e(TAG, "Workout ID is null or empty");
+            callback.onFailure("Workout ID is required for update");
+            return;
+        }
+
+        try {
+            // Prepare workout data
+            Map<String, Object> workoutData = new HashMap<>();
+            workoutData.put("id", workout.getId());
+            workoutData.put("title", workout.getTitle());
+            workoutData.put("date", workout.getDate());
+            workoutData.put("updatedAt", new Date());
+
+            // Convert exercises to maps
+            List<Map<String, Object>> exercisesList = new ArrayList<>();
+            if (workout.getExercises() != null) {
+                for (Exercise exercise : workout.getExercises()) {
+                    if (exercise != null) {
+                        Map<String, Object> exerciseMap = new HashMap<>();
+                        exerciseMap.put("name", exercise.getName());
+                        exerciseMap.put("sets", exercise.getSets());
+                        exerciseMap.put("reps", exercise.getReps());
+                        exerciseMap.put("weight", exercise.getWeight());
+                        exercisesList.add(exerciseMap);
+                    }
+                }
+            }
+            workoutData.put("exercises", exercisesList);
+
+            Log.d(TAG, "Updating workout with data: " + workoutData.toString());
+
+            // Update in Firestore
+            db.collection(WORKOUTS_COLLECTION)
+                    .document(workout.getId())
+                    .update(workoutData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Workout updated successfully: " + workout.getId());
+                        callback.onSuccess(workout);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Error updating workout", e);
+                        callback.onFailure("Failed to update workout: " + e.getMessage());
+                    });
+
+        } catch (Exception e) {
+            Log.e(TAG, "Exception while updating workout", e);
+            callback.onFailure("Error preparing workout data: " + e.getMessage());
+        }
+    }
+
+    // Get user's workouts
     public void getUserWorkouts(String userId, DataCallback<List<Workout>> callback) {
+        Log.d(TAG, "Getting workouts for user: " + userId);
+
         db.collection(WORKOUTS_COLLECTION)
                 .whereEqualTo("userId", userId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<Workout> workouts = new ArrayList<>();
+
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        Workout workout = document.toObject(Workout.class);
-                        workouts.add(workout);
+                        try {
+                            Workout workout = parseWorkoutFromDocument(document);
+                            if (workout != null) {
+                                workouts.add(workout);
+                                Log.d(TAG, "Parsed workout: " + workout.getTitle() + " with " + workout.getExerciseCount() + " exercises");
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error parsing workout: " + document.getId(), e);
+                        }
                     }
+
+                    Log.d(TAG, "Retrieved " + workouts.size() + " workouts");
                     callback.onSuccess(workouts);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting workouts", e);
-                    callback.onFailure(e.getMessage());
+                    callback.onFailure("Failed to load workouts: " + e.getMessage());
                 });
     }
 
-
-
-    public void deleteWorkout(String workoutId, DataCallback<Void> callback) {
-        db.collection(WORKOUTS_COLLECTION)
-                .document(workoutId)
-                .delete()
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Workout deleted successfully");
-                    callback.onSuccess(null);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error deleting workout", e);
-                    callback.onFailure(e.getMessage());
-                });
-    }
-
+    // Get a specific workout by ID
     public void getWorkout(String workoutId, DataCallback<Workout> callback) {
+        Log.d(TAG, "Getting workout: " + workoutId);
+
         db.collection(WORKOUTS_COLLECTION)
                 .document(workoutId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         try {
-                            Workout workout = documentSnapshot.toObject(Workout.class);
+                            Workout workout = parseWorkoutFromDocument(documentSnapshot);
                             if (workout != null) {
-                                workout.setId(documentSnapshot.getId());
+                                Log.d(TAG, "Retrieved workout: " + workout.getTitle() + " with " + workout.getExerciseCount() + " exercises");
                                 callback.onSuccess(workout);
                             } else {
                                 callback.onFailure("Failed to parse workout data");
@@ -190,104 +305,110 @@ public class FirebaseHelper {
                             callback.onFailure("Error parsing workout: " + e.getMessage());
                         }
                     } else {
+                        Log.w(TAG, "Workout not found: " + workoutId);
                         callback.onFailure("Workout not found");
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting workout", e);
-                    callback.onFailure(e.getMessage());
+                    callback.onFailure("Failed to load workout: " + e.getMessage());
                 });
     }
 
-    // Update the existing saveWorkout method to include userId
-    public void saveWorkout(Workout workout, DataCallback<Workout> callback) {
-        // Get current user ID
-        String userId = getCurrentUser() != null ? getCurrentUser().getUid() : null;
-        if (userId == null) {
-            callback.onFailure("User not authenticated");
+    // Delete a workout
+    public void deleteWorkout(String workoutId, DataCallback<Void> callback) {
+        if (workoutId == null || workoutId.isEmpty()) {
+            callback.onFailure("Workout ID is required for deletion");
             return;
         }
 
-        DocumentReference docRef = db.collection(WORKOUTS_COLLECTION).document();
-        workout.setId(docRef.getId());
-
-        // Add userId and createdAt to the workout data
-        Map<String, Object> workoutData = workout.toMap();
-        workoutData.put("userId", userId);
-        workoutData.put("createdAt", new Date());
-
-        docRef.set(workoutData)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Workout saved successfully");
-                    callback.onSuccess(workout);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error saving workout", e);
-                    callback.onFailure(e.getMessage());
-                });
-    }
-
-    // Update the existing updateWorkout method
-    public void updateWorkout(Workout workout, DataCallback<Workout> callback) {
-        if (workout.getId() == null) {
-            callback.onFailure("Workout ID is required for update");
-            return;
-        }
-
-        // Add updatedAt to the workout data
-        Map<String, Object> workoutData = workout.toMap();
-        workoutData.put("updatedAt", new Date());
+        Log.d(TAG, "Deleting workout: " + workoutId);
 
         db.collection(WORKOUTS_COLLECTION)
-                .document(workout.getId())
-                .set(workoutData)
+                .document(workoutId)
+                .delete()
                 .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Workout updated successfully");
-                    callback.onSuccess(workout);
+                    Log.d(TAG, "Workout deleted successfully: " + workoutId);
+                    callback.onSuccess(null);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error updating workout", e);
-                    callback.onFailure(e.getMessage());
+                    Log.e(TAG, "Error deleting workout", e);
+                    callback.onFailure("Failed to delete workout: " + e.getMessage());
                 });
     }
 
-    // Workout Session methods
-    public void saveWorkoutSession(WorkoutSession session, DataCallback<WorkoutSession> callback) {
-        DocumentReference docRef = db.collection(WORKOUT_SESSIONS_COLLECTION).document();
-        session.setId(docRef.getId());
+    // Helper method to parse workout from Firestore document
+    private Workout parseWorkoutFromDocument(DocumentSnapshot document) {
+        try {
+            String id = document.getId();
+            String title = document.getString("title");
+            Date date = document.getDate("date");
+            String userId = document.getString("userId");
+            Date createdAt = document.getDate("createdAt");
+            Date updatedAt = document.getDate("updatedAt");
 
-        docRef.set(session.toMap())
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Workout session saved successfully");
-                    callback.onSuccess(session);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error saving workout session", e);
-                    callback.onFailure(e.getMessage());
-                });
-    }
+            // Parse exercises list
+            List<Exercise> exercises = new ArrayList<>();
+            Object exercisesObj = document.get("exercises");
 
-    public void getUserWorkoutSessions(String userId, DataCallback<List<WorkoutSession>> callback) {
-        db.collection(WORKOUT_SESSIONS_COLLECTION)
-                .whereEqualTo("userId", userId)
-                .orderBy("startTime", Query.Direction.DESCENDING)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    List<WorkoutSession> sessions = new ArrayList<>();
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        WorkoutSession session = document.toObject(WorkoutSession.class);
-                        sessions.add(session);
+            if (exercisesObj instanceof List) {
+                List<?> exercisesList = (List<?>) exercisesObj;
+                for (Object exerciseObj : exercisesList) {
+                    if (exerciseObj instanceof Map) {
+                        Map<?, ?> exerciseMap = (Map<?, ?>) exerciseObj;
+                        Exercise exercise = parseExerciseFromMap(exerciseMap);
+                        if (exercise != null) {
+                            exercises.add(exercise);
+                        }
                     }
-                    callback.onSuccess(sessions);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error getting workout sessions", e);
-                    callback.onFailure(e.getMessage());
-                });
+                }
+            }
+
+            Workout workout = new Workout(id, title, date, exercises, userId, createdAt, updatedAt);
+            return workout;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing workout from document: " + document.getId(), e);
+            return null;
+        }
     }
 
+    // Helper method to parse exercise from map
+    private Exercise parseExerciseFromMap(Map<?, ?> exerciseMap) {
+        try {
+            String name = (String) exerciseMap.get("name");
 
-    // BMI Record methods
+            // Handle different number types for sets, reps, and weight
+            int sets = 0;
+            int reps = 0;
+            double weight = 0.0;
+
+            Object setsObj = exerciseMap.get("sets");
+            if (setsObj instanceof Number) {
+                sets = ((Number) setsObj).intValue();
+            }
+
+            Object repsObj = exerciseMap.get("reps");
+            if (repsObj instanceof Number) {
+                reps = ((Number) repsObj).intValue();
+            }
+
+            Object weightObj = exerciseMap.get("weight");
+            if (weightObj instanceof Number) {
+                weight = ((Number) weightObj).doubleValue();
+            }
+
+            if (name != null && !name.trim().isEmpty() && sets > 0 && reps > 0) {
+                return new Exercise(name, sets, reps, weight);
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing exercise from map", e);
+        }
+        return null;
+    }
+
+    // BMI Record methods (keeping existing ones)
     public void saveBmiRecord(BmiRecord bmiRecord, DataCallback<BmiRecord> callback) {
         DocumentReference docRef = db.collection(BMI_RECORDS_COLLECTION).document();
         bmiRecord.setId(docRef.getId());
@@ -328,25 +449,6 @@ public class FirebaseHelper {
                 });
     }
 
-    public void updateBmiRecord(BmiRecord bmiRecord, DataCallback<BmiRecord> callback) {
-        if (bmiRecord.getId() == null || bmiRecord.getId().isEmpty()) {
-            callback.onFailure("BMI record ID is required for update");
-            return;
-        }
-
-        db.collection(BMI_RECORDS_COLLECTION)
-                .document(bmiRecord.getId())
-                .set(bmiRecord.toMap())
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "BMI record updated successfully");
-                    callback.onSuccess(bmiRecord);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error updating BMI record", e);
-                    callback.onFailure(e.getMessage());
-                });
-    }
-
     public void deleteBmiRecord(String recordId, DataCallback<Void> callback) {
         if (recordId == null || recordId.isEmpty()) {
             callback.onFailure("BMI record ID is required for deletion");
@@ -364,90 +466,5 @@ public class FirebaseHelper {
                     Log.e(TAG, "Error deleting BMI record", e);
                     callback.onFailure(e.getMessage());
                 });
-    }
-
-    // Get BMI statistics for a user
-    public void getBmiStatistics(String userId, DataCallback<BmiStatistics> callback) {
-        db.collection(BMI_RECORDS_COLLECTION)
-                .whereEqualTo("userId", userId)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    List<BmiRecord> records = new ArrayList<>();
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        try {
-                            BmiRecord record = document.toObject(BmiRecord.class);
-                            if (record != null) {
-                                records.add(record);
-                            }
-                        } catch (Exception e) {
-                            Log.w(TAG, "Error parsing BMI record: " + document.getId(), e);
-                        }
-                    }
-
-                    // Calculate statistics
-                    BmiStatistics stats = calculateBmiStatistics(records);
-                    callback.onSuccess(stats);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error getting BMI statistics", e);
-                    callback.onFailure(e.getMessage());
-                });
-    }
-
-    // Helper method to calculate BMI statistics
-    private BmiStatistics calculateBmiStatistics(List<BmiRecord> records) {
-        if (records.isEmpty()) {
-            return new BmiStatistics(0, 0.0, 0.0, 0.0, null, null);
-        }
-
-        double totalBmi = 0.0;
-        double minBmi = Double.MAX_VALUE;
-        double maxBmi = Double.MIN_VALUE;
-        BmiRecord latest = records.get(0); // Already sorted by timestamp desc
-        BmiRecord oldest = records.get(records.size() - 1);
-
-        for (BmiRecord record : records) {
-            double bmi = record.getBmi();
-            totalBmi += bmi;
-            minBmi = Math.min(minBmi, bmi);
-            maxBmi = Math.max(maxBmi, bmi);
-        }
-
-        double averageBmi = totalBmi / records.size();
-
-        return new BmiStatistics(records.size(), averageBmi, minBmi, maxBmi, latest, oldest);
-    }
-
-    // BMI Statistics inner class
-    public static class BmiStatistics {
-        private int totalRecords;
-        private double averageBmi;
-        private double minBmi;
-        private double maxBmi;
-        private BmiRecord latestRecord;
-        private BmiRecord oldestRecord;
-
-        public BmiStatistics(int totalRecords, double averageBmi, double minBmi, double maxBmi,
-                             BmiRecord latestRecord, BmiRecord oldestRecord) {
-            this.totalRecords = totalRecords;
-            this.averageBmi = averageBmi;
-            this.minBmi = minBmi;
-            this.maxBmi = maxBmi;
-            this.latestRecord = latestRecord;
-            this.oldestRecord = oldestRecord;
-        }
-
-        // Getters
-        public int getTotalRecords() { return totalRecords; }
-        public double getAverageBmi() { return averageBmi; }
-        public double getMinBmi() { return minBmi; }
-        public double getMaxBmi() { return maxBmi; }
-        public BmiRecord getLatestRecord() { return latestRecord; }
-        public BmiRecord getOldestRecord() { return oldestRecord; }
-
-        public String getAverageBmiCategory() {
-            return ValidationUtils.getBmiCategory(averageBmi);
-        }
     }
 }
