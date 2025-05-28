@@ -24,7 +24,9 @@ import com.emsi.fittracker.models.Workout;
 import com.emsi.fittracker.models.WorkoutSession;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 public class FirebaseHelper {
     private static final String TAG = "FirebaseHelper";
@@ -132,20 +134,7 @@ public class FirebaseHelper {
     }
 
     // Workout methods
-    public void saveWorkout(Workout workout, DataCallback<Workout> callback) {
-        DocumentReference docRef = db.collection(WORKOUTS_COLLECTION).document();
-        workout.setId(docRef.getId());
 
-        docRef.set(workout.toMap())
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Workout saved successfully");
-                    callback.onSuccess(workout);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error saving workout", e);
-                    callback.onFailure(e.getMessage());
-                });
-    }
 
     public void getUserWorkouts(String userId, DataCallback<List<Workout>> callback) {
         db.collection(WORKOUTS_COLLECTION)
@@ -166,19 +155,7 @@ public class FirebaseHelper {
                 });
     }
 
-    public void updateWorkout(Workout workout, DataCallback<Workout> callback) {
-        db.collection(WORKOUTS_COLLECTION)
-                .document(workout.getId())
-                .set(workout.toMap())
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Workout updated successfully");
-                    callback.onSuccess(workout);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error updating workout", e);
-                    callback.onFailure(e.getMessage());
-                });
-    }
+
 
     public void deleteWorkout(String workoutId, DataCallback<Void> callback) {
         db.collection(WORKOUTS_COLLECTION)
@@ -190,6 +167,86 @@ public class FirebaseHelper {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error deleting workout", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    public void getWorkout(String workoutId, DataCallback<Workout> callback) {
+        db.collection(WORKOUTS_COLLECTION)
+                .document(workoutId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        try {
+                            Workout workout = documentSnapshot.toObject(Workout.class);
+                            if (workout != null) {
+                                workout.setId(documentSnapshot.getId());
+                                callback.onSuccess(workout);
+                            } else {
+                                callback.onFailure("Failed to parse workout data");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing workout", e);
+                            callback.onFailure("Error parsing workout: " + e.getMessage());
+                        }
+                    } else {
+                        callback.onFailure("Workout not found");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting workout", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    // Update the existing saveWorkout method to include userId
+    public void saveWorkout(Workout workout, DataCallback<Workout> callback) {
+        // Get current user ID
+        String userId = getCurrentUser() != null ? getCurrentUser().getUid() : null;
+        if (userId == null) {
+            callback.onFailure("User not authenticated");
+            return;
+        }
+
+        DocumentReference docRef = db.collection(WORKOUTS_COLLECTION).document();
+        workout.setId(docRef.getId());
+
+        // Add userId and createdAt to the workout data
+        Map<String, Object> workoutData = workout.toMap();
+        workoutData.put("userId", userId);
+        workoutData.put("createdAt", new Date());
+
+        docRef.set(workoutData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Workout saved successfully");
+                    callback.onSuccess(workout);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error saving workout", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    // Update the existing updateWorkout method
+    public void updateWorkout(Workout workout, DataCallback<Workout> callback) {
+        if (workout.getId() == null) {
+            callback.onFailure("Workout ID is required for update");
+            return;
+        }
+
+        // Add updatedAt to the workout data
+        Map<String, Object> workoutData = workout.toMap();
+        workoutData.put("updatedAt", new Date());
+
+        db.collection(WORKOUTS_COLLECTION)
+                .document(workout.getId())
+                .set(workoutData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Workout updated successfully");
+                    callback.onSuccess(workout);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error updating workout", e);
                     callback.onFailure(e.getMessage());
                 });
     }
