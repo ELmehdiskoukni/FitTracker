@@ -229,6 +229,7 @@ public class FirebaseHelper {
                 });
     }
 
+
     // BMI Record methods
     public void saveBmiRecord(BmiRecord bmiRecord, DataCallback<BmiRecord> callback) {
         DocumentReference docRef = db.collection(BMI_RECORDS_COLLECTION).document();
@@ -253,8 +254,14 @@ public class FirebaseHelper {
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<BmiRecord> records = new ArrayList<>();
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        BmiRecord record = document.toObject(BmiRecord.class);
-                        records.add(record);
+                        try {
+                            BmiRecord record = document.toObject(BmiRecord.class);
+                            if (record != null) {
+                                records.add(record);
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error parsing BMI record: " + document.getId(), e);
+                        }
                     }
                     callback.onSuccess(records);
                 })
@@ -264,7 +271,31 @@ public class FirebaseHelper {
                 });
     }
 
+    public void updateBmiRecord(BmiRecord bmiRecord, DataCallback<BmiRecord> callback) {
+        if (bmiRecord.getId() == null || bmiRecord.getId().isEmpty()) {
+            callback.onFailure("BMI record ID is required for update");
+            return;
+        }
+
+        db.collection(BMI_RECORDS_COLLECTION)
+                .document(bmiRecord.getId())
+                .set(bmiRecord.toMap())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "BMI record updated successfully");
+                    callback.onSuccess(bmiRecord);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error updating BMI record", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
     public void deleteBmiRecord(String recordId, DataCallback<Void> callback) {
+        if (recordId == null || recordId.isEmpty()) {
+            callback.onFailure("BMI record ID is required for deletion");
+            return;
+        }
+
         db.collection(BMI_RECORDS_COLLECTION)
                 .document(recordId)
                 .delete()
@@ -278,5 +309,88 @@ public class FirebaseHelper {
                 });
     }
 
+    // Get BMI statistics for a user
+    public void getBmiStatistics(String userId, DataCallback<BmiStatistics> callback) {
+        db.collection(BMI_RECORDS_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<BmiRecord> records = new ArrayList<>();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        try {
+                            BmiRecord record = document.toObject(BmiRecord.class);
+                            if (record != null) {
+                                records.add(record);
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error parsing BMI record: " + document.getId(), e);
+                        }
+                    }
 
+                    // Calculate statistics
+                    BmiStatistics stats = calculateBmiStatistics(records);
+                    callback.onSuccess(stats);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting BMI statistics", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    // Helper method to calculate BMI statistics
+    private BmiStatistics calculateBmiStatistics(List<BmiRecord> records) {
+        if (records.isEmpty()) {
+            return new BmiStatistics(0, 0.0, 0.0, 0.0, null, null);
+        }
+
+        double totalBmi = 0.0;
+        double minBmi = Double.MAX_VALUE;
+        double maxBmi = Double.MIN_VALUE;
+        BmiRecord latest = records.get(0); // Already sorted by timestamp desc
+        BmiRecord oldest = records.get(records.size() - 1);
+
+        for (BmiRecord record : records) {
+            double bmi = record.getBmi();
+            totalBmi += bmi;
+            minBmi = Math.min(minBmi, bmi);
+            maxBmi = Math.max(maxBmi, bmi);
+        }
+
+        double averageBmi = totalBmi / records.size();
+
+        return new BmiStatistics(records.size(), averageBmi, minBmi, maxBmi, latest, oldest);
+    }
+
+    // BMI Statistics inner class
+    public static class BmiStatistics {
+        private int totalRecords;
+        private double averageBmi;
+        private double minBmi;
+        private double maxBmi;
+        private BmiRecord latestRecord;
+        private BmiRecord oldestRecord;
+
+        public BmiStatistics(int totalRecords, double averageBmi, double minBmi, double maxBmi,
+                             BmiRecord latestRecord, BmiRecord oldestRecord) {
+            this.totalRecords = totalRecords;
+            this.averageBmi = averageBmi;
+            this.minBmi = minBmi;
+            this.maxBmi = maxBmi;
+            this.latestRecord = latestRecord;
+            this.oldestRecord = oldestRecord;
+        }
+
+        // Getters
+        public int getTotalRecords() { return totalRecords; }
+        public double getAverageBmi() { return averageBmi; }
+        public double getMinBmi() { return minBmi; }
+        public double getMaxBmi() { return maxBmi; }
+        public BmiRecord getLatestRecord() { return latestRecord; }
+        public BmiRecord getOldestRecord() { return oldestRecord; }
+
+        public String getAverageBmiCategory() {
+            return ValidationUtils.getBmiCategory(averageBmi);
+        }
+    }
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "416989645014",
+    "project_id": "fittracker-f712b",
+    "storage_bucket": "fittracker-f712b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:416989645014:android:d974a5f69846aea1d6e177",
+        "android_client_info": {
+          "package_name": "com.emsi.fittracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUC5aXcKXlJeVCWrJVfTPLW91_asyJWbM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
