@@ -1,6 +1,7 @@
 package com.emsi.fittracker.fragments;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -18,6 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.emsi.fittracker.R;
+import com.emsi.fittracker.WorkoutSessionActivity;
 import com.emsi.fittracker.adapters.ExerciseAdapter;
 import com.emsi.fittracker.interfaces.DataCallback;
 import com.emsi.fittracker.models.Exercise;
@@ -480,12 +482,26 @@ public class ExerciceFragment extends Fragment implements ExerciseAdapter.OnExer
         }
     }
 
-    private void startWorkoutSession() {
-        Log.d(TAG, "Starting workout session");
-        showSuccess("Démarrage de l'entraînement...");
-        // TODO: Implement workout session start
-    }
 
+    private void startWorkoutSession() {
+        if (currentWorkout == null) {
+            showError("Aucun entraînement sélectionné");
+            return;
+        }
+
+        if (currentWorkout.getExercises() == null || currentWorkout.getExercises().isEmpty()) {
+            showError("Ajoutez des exercices avant de commencer l'entraînement");
+            return;
+        }
+
+        Log.d(TAG, "Starting workout session for: " + currentWorkout.getTitle());
+
+        // Launch WorkoutSessionActivity
+        Intent intent = new Intent(getContext(), WorkoutSessionActivity.class);
+        intent.putExtra(WorkoutSessionActivity.EXTRA_WORKOUT_ID, currentWorkout.getId());
+        intent.putExtra(WorkoutSessionActivity.EXTRA_WORKOUT_TITLE, currentWorkout.getTitle());
+        startActivity(intent);
+    }
     private void showError(String message) {
         if (getContext() != null) {
             Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
@@ -540,4 +556,5 @@ public class ExerciceFragment extends Fragment implements ExerciseAdapter.OnExer
         isLoading = false;
         isSaving = false;
     }
+
 }

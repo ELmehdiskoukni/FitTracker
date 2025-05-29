@@ -1,5 +1,6 @@
 package com.emsi.fittracker;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
 import androidx.annotation.NonNull;
@@ -43,6 +44,23 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             showFragment(workoutFragment);
             bottomNavigationView.setSelectedItemId(R.id.nav_workouts);
+        }
+
+        // Handle intent extras (for switching to progress tab after workout session)
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra("switch_to_progress", false)) {
+            // Switch to progress tab
+            bottomNavigationView.setSelectedItemId(R.id.nav_progress);
+            showFragment(progressFragment);
         }
     }
 
