@@ -15,9 +15,9 @@ public class Exercise {
 
     public Exercise(String name, int sets, int reps, double weight) {
         this.name = name != null ? name.trim() : "";
-        this.sets = Math.max(0, sets); // Ensure non-negative
-        this.reps = Math.max(0, reps); // Ensure non-negative
-        this.weight = Math.max(0.0, weight); // Ensure non-negative
+        this.sets = Math.max(0, sets);
+        this.reps = Math.max(0, reps);
+        this.weight = Math.max(0.0, weight);
     }
 
     // Getters

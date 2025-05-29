@@ -467,4 +467,96 @@ public class FirebaseHelper {
                     callback.onFailure(e.getMessage());
                 });
     }
+
+
+// WorkoutSession methods
+
+    public void saveWorkoutSession(WorkoutSession session, DataCallback<WorkoutSession> callback) {
+        DocumentReference docRef = db.collection(WORKOUT_SESSIONS_COLLECTION).document();
+        session.setId(docRef.getId());
+
+        docRef.set(session.toMap())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Workout session saved successfully");
+                    callback.onSuccess(session);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error saving workout session", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    public void getUserWorkoutSessions(String userId, DataCallback<List<WorkoutSession>> callback) {
+        db.collection(WORKOUT_SESSIONS_COLLECTION)
+                .whereEqualTo("userId", userId)
+                .orderBy("date", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    List<WorkoutSession> sessions = new ArrayList<>();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        try {
+                            WorkoutSession session = parseWorkoutSessionFromDocument(document);
+                            if (session != null) {
+                                sessions.add(session);
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error parsing workout session: " + document.getId(), e);
+                        }
+                    }
+                    Log.d(TAG, "Retrieved " + sessions.size() + " workout sessions");
+                    callback.onSuccess(sessions);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting workout sessions", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    public void deleteWorkoutSession(String sessionId, DataCallback<Void> callback) {
+        if (sessionId == null || sessionId.isEmpty()) {
+            callback.onFailure("Session ID is required for deletion");
+            return;
+        }
+
+        db.collection(WORKOUT_SESSIONS_COLLECTION)
+                .document(sessionId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Workout session deleted successfully");
+                    callback.onSuccess(null);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error deleting workout session", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    // Helper method to parse WorkoutSession from Firestore document
+    private WorkoutSession parseWorkoutSessionFromDocument(DocumentSnapshot document) {
+        try {
+            String id = document.getId();
+            Date date = document.getDate("date");
+            Long duration = document.getLong("duration");
+            String notes = document.getString("notes");
+            String workoutId = document.getString("workoutId");
+            String userId = document.getString("userId");
+            String workoutName = document.getString("workoutName");
+
+            WorkoutSession session = new WorkoutSession(id, date,
+                    duration != null ? duration : 0, notes, workoutId);
+
+            // Set additional fields if available
+            if (userId != null) {
+                session.setUserId(userId);
+            }
+            if (workoutName != null) {
+                session.setWorkoutName(workoutName);
+            }
+
+            return session;
+        } catch (Exception e) {
+            Log.e(TAG, "Error parsing workout session from document: " + document.getId(), e);
+            return null;
+        }
+    }
 }
