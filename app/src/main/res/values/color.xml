@@ -41,4 +41,7 @@
     <!-- Gradient Colors -->
     <color name="gradient_start">#007AFF</color>
     <color name="gradient_end">#5856D6</color>
+    <color name="error_red_dark">#CC3A3A</color>
+    <color name="loading_overlay">#80000000</color>
+
 </resources>

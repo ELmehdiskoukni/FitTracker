@@ -1,307 +1,332 @@
 package com.emsi.fittracker.utils;
 
+import android.text.TextUtils;
 import android.util.Patterns;
+
 import java.util.regex.Pattern;
 
 public class ValidationUtils {
 
-    // Email validation pattern
+    // Email validation
     private static final Pattern EMAIL_PATTERN = Patterns.EMAIL_ADDRESS;
 
-    // Strong password pattern: at least 1 uppercase, 1 lowercase, 1 digit, minimum 6 characters
-    private static final Pattern STRONG_PASSWORD_PATTERN =
-            Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d@$!%*?&]{6,}$");
+    // Name validation - allows letters, spaces, hyphens, and apostrophes
+    private static final Pattern NAME_PATTERN = Pattern.compile("^[a-zA-ZÀ-ÿ\\s\\-']{2,50}$");
 
-    // Name validation pattern: only letters, spaces, hyphens, and apostrophes
-    private static final Pattern NAME_PATTERN =
-            Pattern.compile("^[a-zA-ZÀ-ÿ\\s'-]+$");
+    // Password validation - at least 6 characters
+    private static final int MIN_PASSWORD_LENGTH = 6;
 
-    // BMI validation constants
-    private static final double MIN_WEIGHT_KG = 20.0;
-    private static final double MAX_WEIGHT_KG = 300.0;
-    private static final double MIN_HEIGHT_CM = 100.0;
-    private static final double MAX_HEIGHT_CM = 250.0;
+    // Phone number validation (basic international format)
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^[+]?[0-9\\s\\-()]{8,15}$");
 
-    // Imperial weight and height ranges
-    private static final double MIN_WEIGHT_LBS = 44.0; // ~20 kg
-    private static final double MAX_WEIGHT_LBS = 661.0; // ~300 kg
-    private static final double MIN_HEIGHT_INCHES = 39.0; // ~100 cm
-    private static final double MAX_HEIGHT_INCHES = 98.0; // ~250 cm
+    // Height validation (in cm) - reasonable range
+    private static final double MIN_HEIGHT = 50.0;  // 50 cm
+    private static final double MAX_HEIGHT = 300.0; // 300 cm
+
+    // Weight validation (in kg) - reasonable range
+    private static final double MIN_WEIGHT = 10.0;  // 10 kg
+    private static final double MAX_WEIGHT = 500.0; // 500 kg
+
+    // Age validation - reasonable range
+    private static final int MIN_AGE = 1;
+    private static final int MAX_AGE = 150;
 
     /**
-     * Validates email format
-     * @param email The email to validate
-     * @return true if email is valid, false otherwise
+     * Validates email address format
      */
     public static boolean isValidEmail(String email) {
-        return email != null && !email.trim().isEmpty() && EMAIL_PATTERN.matcher(email.trim()).matches();
+        return !TextUtils.isEmpty(email) && EMAIL_PATTERN.matcher(email).matches();
+    }
+
+    /**
+     * Validates name format - allows letters, spaces, hyphens, apostrophes
+     * Must be between 2-50 characters
+     */
+    public static boolean isValidName(String name) {
+        return !TextUtils.isEmpty(name) && NAME_PATTERN.matcher(name.trim()).matches();
     }
 
     /**
      * Validates password strength
-     * @param password The password to validate
-     * @return true if password is strong, false otherwise
+     * Must be at least 6 characters long
+     */
+    public static boolean isValidPassword(String password) {
+        return !TextUtils.isEmpty(password) && password.length() >= MIN_PASSWORD_LENGTH;
+    }
+
+    /**
+     * Validates password with custom minimum length
+     */
+    public static boolean isValidPassword(String password, int minLength) {
+        return !TextUtils.isEmpty(password) && password.length() >= minLength;
+    }
+
+    /**
+     * Validates strong password (contains uppercase, lowercase, number, special char)
      */
     public static boolean isStrongPassword(String password) {
-        return password != null && STRONG_PASSWORD_PATTERN.matcher(password).matches();
+        if (!isValidPassword(password)) return false;
+
+        boolean hasUpper = password.matches(".*[A-Z].*");
+        boolean hasLower = password.matches(".*[a-z].*");
+        boolean hasNumber = password.matches(".*\\d.*");
+        boolean hasSpecial = password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*");
+
+        return hasUpper && hasLower && hasNumber && hasSpecial;
     }
 
     /**
-     * Validates name format
-     * @param name The name to validate
-     * @return true if name is valid, false otherwise
+     * Validates phone number format
      */
-    public static boolean isValidName(String name) {
-        return name != null && !name.trim().isEmpty() &&
-                name.trim().length() >= 2 &&
-                NAME_PATTERN.matcher(name.trim()).matches();
+    public static boolean isValidPhone(String phone) {
+        return !TextUtils.isEmpty(phone) && PHONE_PATTERN.matcher(phone.trim()).matches();
     }
 
     /**
-     * Validates password length
-     * @param password The password to validate
-     * @return true if password meets minimum length requirement, false otherwise
-     */
-    public static boolean isValidPasswordLength(String password) {
-        return password != null && password.length() >= 6;
-    }
-
-    /**
-     * Validates if passwords match
-     * @param password The original password
-     * @param confirmPassword The confirmation password
-     * @return true if passwords match, false otherwise
-     */
-    public static boolean doPasswordsMatch(String password, String confirmPassword) {
-        return password != null && confirmPassword != null && password.equals(confirmPassword);
-    }
-
-    /**
-     * Sanitizes input by trimming whitespace
-     * @param input The input to sanitize
-     * @return Sanitized input or empty string if input is null
-     */
-    public static String sanitizeInput(String input) {
-        return input != null ? input.trim() : "";
-    }
-
-    /**
-     * Validates if a string is not empty after trimming
-     * @param input The input to validate
-     * @return true if input is not empty, false otherwise
-     */
-    public static boolean isNotEmpty(String input) {
-        return input != null && !input.trim().isEmpty();
-    }
-
-    /**
-     * Validates phone number format (basic validation)
-     * @param phoneNumber The phone number to validate
-     * @return true if phone number is valid, false otherwise
-     */
-    public static boolean isValidPhoneNumber(String phoneNumber) {
-        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
-            return false;
-        }
-
-        // Remove all non-digit characters
-        String digitsOnly = phoneNumber.replaceAll("[^\\d]", "");
-
-        // Check if it has 10 digits (for most countries) or starts with country code
-        return digitsOnly.length() >= 10 && digitsOnly.length() <= 15;
-    }
-
-    /**
-     * Validates age range
-     * @param age The age to validate
-     * @return true if age is within valid range (13-120), false otherwise
-     */
-    public static boolean isValidAge(int age) {
-        return age >= 13 && age <= 120;
-    }
-
-    /**
-     * Validates weight input (in kg)
-     * @param weight The weight to validate
-     * @return true if weight is valid (20-300 kg), false otherwise
-     */
-    public static boolean isValidWeight(double weight) {
-        return weight >= MIN_WEIGHT_KG && weight <= MAX_WEIGHT_KG;
-    }
-
-    /**
-     * Validates height input (in cm)
-     * @param height The height to validate
-     * @return true if height is valid (100-250 cm), false otherwise
+     * Validates height in centimeters
      */
     public static boolean isValidHeight(double height) {
-        return height >= MIN_HEIGHT_CM && height <= MAX_HEIGHT_CM;
+        return height >= MIN_HEIGHT && height <= MAX_HEIGHT;
     }
 
     /**
-     * Validates weight input in pounds
-     * @param weight The weight in pounds to validate
-     * @return true if weight is valid (44-661 lbs), false otherwise
+     * Validates height from string input
      */
-    public static boolean isValidWeightLbs(double weight) {
-        return weight >= MIN_WEIGHT_LBS && weight <= MAX_WEIGHT_LBS;
-    }
-
-    /**
-     * Validates height input in inches
-     * @param height The height in inches to validate
-     * @return true if height is valid (39-98 inches), false otherwise
-     */
-    public static boolean isValidHeightInches(double height) {
-        return height >= MIN_HEIGHT_INCHES && height <= MAX_HEIGHT_INCHES;
-    }
-
-    /**
-     * Validates numeric input string
-     * @param input The string to validate as a number
-     * @return true if input can be parsed as a valid double, false otherwise
-     */
-    public static boolean isValidNumericInput(String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return false;
-        }
-
+    public static boolean isValidHeight(String heightStr) {
         try {
-            double value = Double.parseDouble(input.trim());
-            return !Double.isNaN(value) && !Double.isInfinite(value) && value > 0;
+            double height = Double.parseDouble(heightStr);
+            return isValidHeight(height);
         } catch (NumberFormatException e) {
             return false;
         }
     }
 
     /**
+     * Validates weight in kilograms
+     */
+    public static boolean isValidWeight(double weight) {
+        return weight >= MIN_WEIGHT && weight <= MAX_WEIGHT;
+    }
+
+    /**
+     * Validates weight from string input
+     */
+    public static boolean isValidWeight(String weightStr) {
+        try {
+            double weight = Double.parseDouble(weightStr);
+            return isValidWeight(weight);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Validates age
+     */
+    public static boolean isValidAge(int age) {
+        return age >= MIN_AGE && age <= MAX_AGE;
+    }
+
+    /**
+     * Validates age from string input
+     */
+    public static boolean isValidAge(String ageStr) {
+        try {
+            int age = Integer.parseInt(ageStr);
+            return isValidAge(age);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Validates that two passwords match
+     */
+    public static boolean doPasswordsMatch(String password, String confirmPassword) {
+        return !TextUtils.isEmpty(password) &&
+                !TextUtils.isEmpty(confirmPassword) &&
+                password.equals(confirmPassword);
+    }
+
+    /**
+     * Validates gender selection
+     */
+    public static boolean isValidGender(String gender) {
+        return !TextUtils.isEmpty(gender) &&
+                (gender.equals("male") || gender.equals("female") || gender.equals("other"));
+    }
+
+    /**
+     * Validates activity level selection
+     */
+    public static boolean isValidActivityLevel(String activityLevel) {
+        return !TextUtils.isEmpty(activityLevel) &&
+                (activityLevel.equals("sedentary") ||
+                        activityLevel.equals("light") ||
+                        activityLevel.equals("moderate") ||
+                        activityLevel.equals("active") ||
+                        activityLevel.equals("very_active"));
+    }
+
+    /**
      * Validates BMI calculation inputs
-     * @param weight Weight value
-     * @param height Height value
-     * @param isMetric True if using metric system, false for imperial
-     * @return ValidationResult object with validation status and message
      */
-    public static ValidationResult validateBmiInputs(double weight, double height, boolean isMetric) {
-        if (isMetric) {
-            if (!isValidWeight(weight)) {
-                return new ValidationResult(false,
-                        "Weight must be between " + MIN_WEIGHT_KG + " and " + MAX_WEIGHT_KG + " kg");
+    public static boolean canCalculateBMI(double height, double weight) {
+        return isValidHeight(height) && isValidWeight(weight);
+    }
+
+    /**
+     * Validates that a string is not empty after trimming
+     */
+    public static boolean isNotEmpty(String text) {
+        return !TextUtils.isEmpty(text) && !text.trim().isEmpty();
+    }
+
+    /**
+     * Validates string length within range
+     */
+    public static boolean isValidLength(String text, int minLength, int maxLength) {
+        if (TextUtils.isEmpty(text)) return false;
+        int length = text.trim().length();
+        return length >= minLength && length <= maxLength;
+    }
+
+    /**
+     * Validates numeric input within range
+     */
+    public static boolean isNumericInRange(String text, double min, double max) {
+        try {
+            double value = Double.parseDouble(text);
+            return value >= min && value <= max;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Validates integer input within range
+     */
+    public static boolean isIntegerInRange(String text, int min, int max) {
+        try {
+            int value = Integer.parseInt(text);
+            return value >= min && value <= max;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Sanitizes input by trimming whitespace
+     */
+    public static String sanitizeInput(String input) {
+        return input != null ? input.trim() : "";
+    }
+
+    /**
+     * Gets validation error message for email
+     */
+    public static String getEmailErrorMessage(String email) {
+        if (TextUtils.isEmpty(email)) {
+            return "L'email est requis";
+        }
+        if (!isValidEmail(email)) {
+            return "Format d'email invalide";
+        }
+        return null;
+    }
+
+    /**
+     * Gets validation error message for name
+     */
+    public static String getNameErrorMessage(String name) {
+        if (TextUtils.isEmpty(name)) {
+            return "Le nom est requis";
+        }
+        if (name.trim().length() < 2) {
+            return "Le nom doit contenir au moins 2 caractères";
+        }
+        if (name.trim().length() > 50) {
+            return "Le nom ne peut pas dépasser 50 caractères";
+        }
+        if (!isValidName(name)) {
+            return "Le nom contient des caractères invalides";
+        }
+        return null;
+    }
+
+    /**
+     * Gets validation error message for password
+     */
+    public static String getPasswordErrorMessage(String password) {
+        if (TextUtils.isEmpty(password)) {
+            return "Le mot de passe est requis";
+        }
+        if (password.length() < MIN_PASSWORD_LENGTH) {
+            return "Le mot de passe doit contenir au moins " + MIN_PASSWORD_LENGTH + " caractères";
+        }
+        return null;
+    }
+
+    /**
+     * Gets validation error message for height
+     */
+    public static String getHeightErrorMessage(String height) {
+        if (TextUtils.isEmpty(height)) {
+            return "La taille est requise";
+        }
+        try {
+            double h = Double.parseDouble(height);
+            if (h < MIN_HEIGHT) {
+                return "La taille doit être supérieure à " + MIN_HEIGHT + " cm";
             }
-            if (!isValidHeight(height)) {
-                return new ValidationResult(false,
-                        "Height must be between " + MIN_HEIGHT_CM + " and " + MAX_HEIGHT_CM + " cm");
+            if (h > MAX_HEIGHT) {
+                return "La taille doit être inférieure à " + MAX_HEIGHT + " cm";
             }
-        } else {
-            if (!isValidWeightLbs(weight)) {
-                return new ValidationResult(false,
-                        "Weight must be between " + MIN_WEIGHT_LBS + " and " + MAX_WEIGHT_LBS + " lbs");
+        } catch (NumberFormatException e) {
+            return "Format de taille invalide";
+        }
+        return null;
+    }
+
+    /**
+     * Gets validation error message for weight
+     */
+    public static String getWeightErrorMessage(String weight) {
+        if (TextUtils.isEmpty(weight)) {
+            return "Le poids est requis";
+        }
+        try {
+            double w = Double.parseDouble(weight);
+            if (w < MIN_WEIGHT) {
+                return "Le poids doit être supérieur à " + MIN_WEIGHT + " kg";
             }
-            if (!isValidHeightInches(height)) {
-                return new ValidationResult(false,
-                        "Height must be between " + MIN_HEIGHT_INCHES + " and " + MAX_HEIGHT_INCHES + " inches");
+            if (w > MAX_WEIGHT) {
+                return "Le poids doit être inférieur à " + MAX_WEIGHT + " kg";
             }
+        } catch (NumberFormatException e) {
+            return "Format de poids invalide";
         }
-
-        return new ValidationResult(true, "Valid inputs");
+        return null;
     }
 
     /**
-     * Validates BMI range (general health check)
-     * @param bmi The calculated BMI value
-     * @return true if BMI is within reasonable range (10-60), false otherwise
+     * Gets validation error message for age
      */
-    public static boolean isValidBmiRange(double bmi) {
-        return bmi >= 10.0 && bmi <= 60.0;
-    }
-
-    /**
-     * Gets BMI category based on WHO standards
-     * @param bmi The BMI value
-     * @return String representing the BMI category
-     */
-    public static String getBmiCategory(double bmi) {
-        if (bmi < 18.5) {
-            return "Underweight";
-        } else if (bmi <= 24.9) {
-            return "Normal Weight";
-        } else if (bmi <= 29.9) {
-            return "Overweight";
-        } else {
-            return "Obese";
+    public static String getAgeErrorMessage(String age) {
+        if (TextUtils.isEmpty(age)) {
+            return "L'âge est requis";
         }
-    }
-
-    /**
-     * Gets health advice based on BMI category
-     * @param bmi The BMI value
-     * @return String with health advice
-     */
-    public static String getBmiHealthAdvice(double bmi) {
-        if (bmi < 18.5) {
-            return "Consider consulting a healthcare provider about healthy weight gain strategies.";
-        } else if (bmi <= 24.9) {
-            return "Great! You're maintaining a healthy weight. Keep up the good work!";
-        } else if (bmi <= 29.9) {
-            return "Consider lifestyle changes including balanced diet and regular exercise.";
-        } else {
-            return "Please consult a healthcare provider for personalized weight management guidance.";
+        try {
+            int a = Integer.parseInt(age);
+            if (a < MIN_AGE) {
+                return "L'âge doit être supérieur à " + MIN_AGE;
+            }
+            if (a > MAX_AGE) {
+                return "L'âge doit être inférieur à " + MAX_AGE;
+            }
+        } catch (NumberFormatException e) {
+            return "Format d'âge invalide";
         }
-    }
-
-    /**
-     * Unit conversion: pounds to kilograms
-     * @param pounds Weight in pounds
-     * @return Weight in kilograms
-     */
-    public static double convertLbsToKg(double pounds) {
-        return pounds * 0.453592;
-    }
-
-    /**
-     * Unit conversion: inches to centimeters
-     * @param inches Height in inches
-     * @return Height in centimeters
-     */
-    public static double convertInchesToCm(double inches) {
-        return inches * 2.54;
-    }
-
-    /**
-     * Unit conversion: kilograms to pounds
-     * @param kilograms Weight in kilograms
-     * @return Weight in pounds
-     */
-    public static double convertKgToLbs(double kilograms) {
-        return kilograms / 0.453592;
-    }
-
-    /**
-     * Unit conversion: centimeters to inches
-     * @param centimeters Height in centimeters
-     * @return Height in inches
-     */
-    public static double convertCmToInches(double centimeters) {
-        return centimeters / 2.54;
-    }
-
-    /**
-     * Validation result class to hold validation status and message
-     */
-    public static class ValidationResult {
-        private final boolean isValid;
-        private final String message;
-
-        public ValidationResult(boolean isValid, String message) {
-            this.isValid = isValid;
-            this.message = message;
-        }
-
-        public boolean isValid() {
-            return isValid;
-        }
-
-        public String getMessage() {
-            return message;
-        }
+        return null;
     }
 }

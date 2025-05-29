@@ -98,6 +98,11 @@ public class FirebaseHelper {
 
     // User methods
     public void saveUser(User user, DataCallback<User> callback) {
+        if (user == null || user.getUid() == null || user.getUid().isEmpty()) {
+            callback.onFailure("Invalid user data");
+            return;
+        }
+
         db.collection(USERS_COLLECTION)
                 .document(user.getUid())
                 .set(user.toMap())
@@ -112,13 +117,32 @@ public class FirebaseHelper {
     }
 
     public void getUser(String userId, DataCallback<User> callback) {
+        if (userId == null || userId.isEmpty()) {
+            callback.onFailure("User ID is required");
+            return;
+        }
+
         db.collection(USERS_COLLECTION)
                 .document(userId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        User user = documentSnapshot.toObject(User.class);
-                        callback.onSuccess(user);
+                        try {
+                            Map<String, Object> data = documentSnapshot.getData();
+                            if (data != null) {
+                                User user = User.fromMap(data);
+                                if (user != null) {
+                                    callback.onSuccess(user);
+                                } else {
+                                    callback.onFailure("Failed to parse user data");
+                                }
+                            } else {
+                                callback.onFailure("User data is empty");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing user data", e);
+                            callback.onFailure("Error parsing user data: " + e.getMessage());
+                        }
                     } else {
                         callback.onFailure("User not found");
                     }
@@ -129,7 +153,47 @@ public class FirebaseHelper {
                 });
     }
 
-    // FIXED WORKOUT METHODS - COMPLETE SOLUTION
+    public void updateUser(User user, DataCallback<User> callback) {
+        if (user == null || user.getUid() == null || user.getUid().isEmpty()) {
+            callback.onFailure("Invalid user data");
+            return;
+        }
+
+        // Update the timestamp
+        user.setUpdatedAt(System.currentTimeMillis());
+
+        db.collection(USERS_COLLECTION)
+                .document(user.getUid())
+                .update(user.toMap())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "User updated successfully");
+                    callback.onSuccess(user);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error updating user", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
+    public void deleteUser(String userId, DataCallback<Void> callback) {
+        if (userId == null || userId.isEmpty()) {
+            callback.onFailure("User ID is required");
+            return;
+        }
+
+        db.collection(USERS_COLLECTION)
+                .document(userId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "User deleted successfully");
+                    callback.onSuccess(null);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error deleting user", e);
+                    callback.onFailure(e.getMessage());
+                });
+    }
+
 
     // Save a new workout
     public void saveWorkout(Workout workout, DataCallback<Workout> callback) {
