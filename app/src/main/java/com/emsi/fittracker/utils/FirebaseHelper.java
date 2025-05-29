@@ -316,13 +316,13 @@ public class FirebaseHelper {
     }
 
     // Get user's workouts
+// Get user's workouts - Updated to avoid index requirement
     public void getUserWorkouts(String userId, DataCallback<List<Workout>> callback) {
         Log.d(TAG, "Getting workouts for user: " + userId);
 
         db.collection(WORKOUTS_COLLECTION)
                 .whereEqualTo("userId", userId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .get()
+                .get()  // Remove orderBy to avoid index requirement
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<Workout> workouts = new ArrayList<>();
 
@@ -338,6 +338,16 @@ public class FirebaseHelper {
                         }
                     }
 
+                    // Sort in memory by createdAt (descending - newest first)
+                    workouts.sort((w1, w2) -> {
+                        Date d1 = w1.getCreatedAt();
+                        Date d2 = w2.getCreatedAt();
+                        if (d1 == null && d2 == null) return 0;
+                        if (d1 == null) return 1;
+                        if (d2 == null) return -1;
+                        return d2.compareTo(d1);
+                    });
+
                     Log.d(TAG, "Retrieved " + workouts.size() + " workouts");
                     callback.onSuccess(workouts);
                 })
@@ -346,7 +356,6 @@ public class FirebaseHelper {
                     callback.onFailure("Failed to load workouts: " + e.getMessage());
                 });
     }
-
     // Get a specific workout by ID
     public void getWorkout(String workoutId, DataCallback<Workout> callback) {
         Log.d(TAG, "Getting workout: " + workoutId);
@@ -491,8 +500,7 @@ public class FirebaseHelper {
     public void getUserBmiRecords(String userId, DataCallback<List<BmiRecord>> callback) {
         db.collection(BMI_RECORDS_COLLECTION)
                 .whereEqualTo("userId", userId)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .get()
+                .get()  // Remove orderBy to avoid index requirement
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<BmiRecord> records = new ArrayList<>();
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
@@ -505,6 +513,15 @@ public class FirebaseHelper {
                             Log.w(TAG, "Error parsing BMI record: " + document.getId(), e);
                         }
                     }
+
+                    // Sort in memory by timestamp (descending - newest first)
+                    records.sort((r1, r2) -> {
+                        long t1 = r1.getTimestamp();
+                        long t2 = r2.getTimestamp();
+                        return Long.compare(t2, t1); // Descending order
+                    });
+
+                    Log.d(TAG, "Retrieved " + records.size() + " BMI records");
                     callback.onSuccess(records);
                 })
                 .addOnFailureListener(e -> {
@@ -512,6 +529,7 @@ public class FirebaseHelper {
                     callback.onFailure(e.getMessage());
                 });
     }
+
 
     public void deleteBmiRecord(String recordId, DataCallback<Void> callback) {
         if (recordId == null || recordId.isEmpty()) {
@@ -553,8 +571,7 @@ public class FirebaseHelper {
     public void getUserWorkoutSessions(String userId, DataCallback<List<WorkoutSession>> callback) {
         db.collection(WORKOUT_SESSIONS_COLLECTION)
                 .whereEqualTo("userId", userId)
-                .orderBy("date", Query.Direction.DESCENDING)
-                .get()
+                .get()  // Remove orderBy to avoid index requirement
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     List<WorkoutSession> sessions = new ArrayList<>();
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
@@ -567,6 +584,17 @@ public class FirebaseHelper {
                             Log.w(TAG, "Error parsing workout session: " + document.getId(), e);
                         }
                     }
+
+                    // Sort in memory by date (descending - newest first)
+                    sessions.sort((s1, s2) -> {
+                        Date d1 = s1.getDate();
+                        Date d2 = s2.getDate();
+                        if (d1 == null && d2 == null) return 0;
+                        if (d1 == null) return 1;
+                        if (d2 == null) return -1;
+                        return d2.compareTo(d1); // Descending order
+                    });
+
                     Log.d(TAG, "Retrieved " + sessions.size() + " workout sessions");
                     callback.onSuccess(sessions);
                 })
@@ -575,7 +603,6 @@ public class FirebaseHelper {
                     callback.onFailure(e.getMessage());
                 });
     }
-
     public void deleteWorkoutSession(String sessionId, DataCallback<Void> callback) {
         if (sessionId == null || sessionId.isEmpty()) {
             callback.onFailure("Session ID is required for deletion");
